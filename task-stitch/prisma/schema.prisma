@@ -1,0 +1,79 @@
+// This is your Prisma schema file.
+// provider and url are already set up by `prisma init`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- ENUMS ---
+// Enums define the allowed roles and resource types
+
+enum Role {
+  STUDENT
+  FACULTY
+  ADMIN
+}
+
+enum ResourceType {
+  LAB
+  MEETING_ROOM
+  OFFICE
+  EQUIPMENT
+}
+
+// --- CORE MODELS ---
+
+// The User model handles students, faculty, and admins
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  role      Role     @default(STUDENT) // New users default to Student
+
+  // A user can make many bookings
+  bookings Booking[]
+
+  // A user (if faculty/admin) can manage many resources
+  managedResources Resource[] @relation("ManagedResources")
+}
+
+// The Resource model is a generic item that can be booked
+// (e.g., "AI Lab", "Prof. Smith's Office", "Projector 1")
+model Resource {
+  id       Int          @id @default(autoincrement())
+  name     String
+  type     ResourceType @default(LAB)
+  capacity Int          @default(1)
+
+  // A resource can have many bookings
+  bookings Booking[]
+
+  // A resource is managed by a specific user (e.g., faculty)
+  manager   User? @relation("ManagedResources", fields: [managerId], references: [id])
+  managerId Int?  // Optional manager
+}
+
+// The Booking model is the "join table" that connects
+// a User to a Resource at a specific time.
+model Booking {
+  id          Int      @id @default(autoincrement())
+  startTime   DateTime
+  endTime     DateTime
+  
+  // Connects to the User who made the booking
+  user        User     @relation(fields: [userId], references: [id])
+  userId      Int
+
+  // Connects to the Resource that was booked
+  resource    Resource @relation(fields: [resourceId], references: [id])
+  resourceId  Int
+
+  // Adds indexes to make searching by user or resource faster
+  @@index([userId])
+  @@index([resourceId])
+}
